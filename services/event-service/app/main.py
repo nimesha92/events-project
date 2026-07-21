@@ -2,12 +2,8 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from . import crud, models, schemas
+from . import crud, schemas
 from .database import Base, engine, get_db
-
-
-Base.metadata.create_all(bind=engine)
-
 
 app = FastAPI(
     title="Event Service",
@@ -15,28 +11,42 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Routes are mounted under /api/events to match the ALB ingress path rule.
-# The ALB ingress controller does not rewrite/strip the matched prefix, so
-# the service must expose routes at the same path the ingress forwards.
 router = APIRouter(prefix="/api/events")
+
+
+@app.on_event("startup")
+def create_database_tables() -> None:
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception as exc:
+        # Log the error, but allow Uvicorn to start.
+        print(f"Database initialization failed: {exc}")
 
 
 @app.get("/")
 def read_root() -> dict[str, str]:
+    return {"message": "Event Service is running"}
+
+
+# Liveness check: only confirms that the application process is alive.
+@app.get("/health")
+def health_check() -> dict[str, str]:
     return {
-        "message": "Event Service is running"
+        "status": "healthy",
+        "service": "event-service",
     }
 
 
-@app.get("/health")
-def health_check(
+# Readiness check: confirms that the database is reachable.
+@app.get("/ready")
+def readiness_check(
     db: Session = Depends(get_db),
 ) -> dict[str, str]:
     try:
         db.execute(text("SELECT 1"))
 
         return {
-            "status": "healthy",
+            "status": "ready",
             "database": "connected",
         }
 
@@ -142,9 +152,7 @@ def delete_event(
         )
 
     crud.delete_event(db, db_event)
-
     return None
-
 
 
 app.include_router(router)
