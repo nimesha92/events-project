@@ -1,4 +1,4 @@
-const REGISTRATION_API = "/api/registrations/registrations";
+const REGISTRATION_API = "/api/registrations";
 const ANALYTICS_API = "/api/analytics/track";
 
 function getSessionId() {

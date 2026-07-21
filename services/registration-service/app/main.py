@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -22,14 +22,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Routes are mounted under /api/registrations to match the ALB ingress path
+# rule. The ALB ingress controller does not rewrite/strip the matched
+# prefix, so the service must expose routes at the same path the ingress
+# forwards.
+router = APIRouter(prefix="/api/registrations")
+
 
 @app.get("/")
 def root():
     return {"message": "Registration Service is running"}
 
 
-@app.post(
-    "/registrations",
+@router.post(
+    "",
     response_model=schemas.RegistrationResponse,
 )
 def create_registration(
@@ -39,8 +45,8 @@ def create_registration(
     return crud.create_registration(db, registration)
 
 
-@app.get(
-    "/registrations",
+@router.get(
+    "",
     response_model=list[schemas.RegistrationResponse],
 )
 def list_registrations(
@@ -49,8 +55,8 @@ def list_registrations(
     return crud.get_registrations(db)
 
 
-@app.get(
-    "/registrations/{registration_id}",
+@router.get(
+    "/{registration_id}",
     response_model=schemas.RegistrationResponse,
 )
 def get_registration(
@@ -71,7 +77,7 @@ def get_registration(
     return registration
 
 
-@app.delete("/registrations/{registration_id}")
+@router.delete("/{registration_id}")
 def delete_registration(
     registration_id: int,
     db: Session = Depends(get_db),
@@ -90,3 +96,5 @@ def delete_registration(
     crud.delete_registration(db, registration)
 
     return {"message": "Registration deleted"}
+
+app.include_router(router)

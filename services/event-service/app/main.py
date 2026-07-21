@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -14,6 +14,11 @@ app = FastAPI(
     description="Microservice for managing event details",
     version="1.0.0",
 )
+
+# Routes are mounted under /api/events to match the ALB ingress path rule.
+# The ALB ingress controller does not rewrite/strip the matched prefix, so
+# the service must expose routes at the same path the ingress forwards.
+router = APIRouter(prefix="/api/events")
 
 
 @app.get("/")
@@ -42,8 +47,8 @@ def health_check(
         ) from exc
 
 
-@app.post(
-    "/events",
+@router.post(
+    "",
     response_model=schemas.EventResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -54,8 +59,8 @@ def create_event(
     return crud.create_event(db, event)
 
 
-@app.get(
-    "/events",
+@router.get(
+    "",
     response_model=list[schemas.EventResponse],
 )
 def list_events(
@@ -70,8 +75,8 @@ def list_events(
     )
 
 
-@app.get(
-    "/events/{event_id}",
+@router.get(
+    "/{event_id}",
     response_model=schemas.EventResponse,
 )
 def read_event(
@@ -89,8 +94,8 @@ def read_event(
     return db_event
 
 
-@app.put(
-    "/events/{event_id}",
+@router.put(
+    "/{event_id}",
     response_model=schemas.EventResponse,
 )
 def update_event(
@@ -120,8 +125,8 @@ def update_event(
         ) from exc
 
 
-@app.delete(
-    "/events/{event_id}",
+@router.delete(
+    "/{event_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def delete_event(
@@ -140,3 +145,6 @@ def delete_event(
 
     return None
 
+
+
+app.include_router(router)

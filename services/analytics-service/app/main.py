@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .clickhouse import get_clickhouse_client
@@ -18,6 +18,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Routes are mounted under /api/analytics to match the ALB ingress path
+# rule. The ALB ingress controller does not rewrite/strip the matched
+# prefix, so the service must expose routes at the same path the ingress
+# forwards.
+router = APIRouter(prefix="/api/analytics")
 
 
 @app.get("/")
@@ -46,7 +52,7 @@ def health_check() -> dict[str, str]:
         ) from exc
 
 
-@app.post(
+@router.post(
     "/track",
     response_model=AnalyticsResponse,
     status_code=201,
@@ -82,3 +88,5 @@ def track_event(event: AnalyticsEvent) -> AnalyticsResponse:
             status_code=500,
             detail="Failed to store analytics event",
         ) from exc
+
+app.include_router(router)
