@@ -1,0 +1,95 @@
+{{- if .Values.programService.enabled }}
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: program-service
+  labels:
+    app: program-service
+
+spec:
+  replicas: {{ .Values.programService.replicas }}
+
+  strategy:
+    type: RollingUpdate
+
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app: program-service
+
+  template:
+    metadata:
+      labels:
+        app: program-service
+
+    spec:
+      containers:
+        - name: program-service
+
+          image: "{{ .Values.programService.image.repository }}:{{ .Values.programService.image.tag }}"
+
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+
+          ports:
+            - name: http
+              containerPort: {{ .Values.programService.port }}
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: platform-config
+
+            - secretRef:
+                name: platform-secrets
+
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.programService.readinessPath }}
+              port: http
+
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.programService.livenessPath }}
+              port: http
+
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          resources:
+{{ toYaml .Values.programService.resources | indent 12 }}
+
+---
+
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: program-service
+  labels:
+    app: program-service
+
+spec:
+  type: ClusterIP
+
+  selector:
+    app: program-service
+
+  ports:
+    - name: http
+      port: {{ .Values.programService.port }}
+      targetPort: http
+      protocol: TCP
+
+{{- end }}

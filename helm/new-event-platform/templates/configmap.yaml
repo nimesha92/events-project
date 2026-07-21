@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: platform-config
+  labels:
+    app.kubernetes.io/name: new-event-platform
+
+data:
+  CLICKHOUSE_HOST: {{ .Values.clickhouse.host | quote }}
+
+  CLICKHOUSE_PORT: {{ .Values.clickhouse.port | quote }}
+
+  CLICKHOUSE_DATABASE: {{ .Values.clickhouse.database | quote }}
+
+  CLICKHOUSE_USER: {{ .Values.clickhouse.username | quote }}
+
+  EVENT_SERVICE_URL: {{ .Values.internalUrls.eventService | quote }}
+
+  PROGRAM_SERVICE_URL: {{ .Values.internalUrls.programService | quote }}
+
+  REGISTRATION_SERVICE_URL: {{ .Values.internalUrls.registrationService | quote }}
+
+  ANALYTICS_SERVICE_URL: {{ .Values.internalUrls.analyticsService | quote }}
+
+  METABASE_TIMEZONE: {{ .Values.metabase.timezone | quote }}

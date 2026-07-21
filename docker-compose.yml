@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: event-postgres
+    environment:
+      POSTGRES_DB: eventdb
+      POSTGRES_USER: eventuser
+      POSTGRES_PASSWORD: eventpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventuser -d eventdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: event-clickhouse
+    environment:
+      CLICKHOUSE_DB: analytics
+      CLICKHOUSE_USER: analyticsuser
+      CLICKHOUSE_PASSWORD: analyticspassword
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "clickhouse-client",
+          "--user",
+          "analyticsuser",
+          "--password",
+          "analyticspassword",
+          "--query",
+          "SELECT 1"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10      
+
+  event-service:
+    build:
+      context: ./services/event-service
+    container_name: event-service-compose
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql://eventuser:eventpassword@postgres:5432/eventdb
+      LAMBDA_FUNCTION_URL: https://pdc43kydwbahpzkfwvbarcvkry0wvfgu.lambda-url.us-east-1.on.aws/
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  program-service:
+    build:
+      context: ./services/program-service
+    container_name: program-service-compose
+    ports:
+      - "8002:8000"
+    environment:
+      DATABASE_URL: postgresql://eventuser:eventpassword@postgres:5432/eventdb
+    depends_on:
+      postgres:
+        condition: service_healthy
+  registration-service:
+    build:
+      context: ./services/registration-service
+    container_name: registration-service-compose
+    ports:
+      - "8003:8000"
+    environment:
+      DATABASE_URL: postgresql://eventuser:eventpassword@postgres:5432/eventdb
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  analytics-service:
+    build:
+      context: ./services/analytics-service
+    container_name: analytics-service-compose
+    ports:
+      - "8004:8000"
+    environment:
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: analyticsuser
+      CLICKHOUSE_PASSWORD: analyticspassword
+      CLICKHOUSE_DATABASE: 
+    depends_on:
+      clickhouse:
+        condition: service_healthy   
+  metabase:
+    image: metabase/metabase:latest
+    container_name: event-metabase
+    ports:
+      - "3000:3000"
+    depends_on:
+      clickhouse:
+        condition: service_healthy             
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend-compose
+    ports:
+      - "8081:80"
+
+volumes:
+  postgres_data:
+  clickhouse_data:
