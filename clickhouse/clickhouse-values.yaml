@@ -1,0 +1,32 @@
+replicaCount: 1
+
+image:
+  repository: clickhouse/clickhouse-server
+  tag: "24.8"
+
+shards: 1
+replicas: 1
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+
+persistence:
+  enabled: true
+  storageClass: gp3
+  accessModes:
+    - ReadWriteOnce
+  size: 4Gi
+
+service:
+  type: ClusterIP
+  port: 8123
+  tcpPort: 9000
+
+auth:
+  username: clickhouse
+  password: clickhouse123
