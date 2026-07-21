@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, FastAPI, HTTPException
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from . import crud, models, schemas
@@ -32,6 +33,25 @@ router = APIRouter(prefix="/api/registrations")
 @app.get("/")
 def root():
     return {"message": "Registration Service is running"}
+
+
+@app.get("/health")
+def health_check(
+    db: Session = Depends(get_db),
+) -> dict[str, str]:
+    try:
+        db.execute(text("SELECT 1"))
+
+        return {
+            "status": "healthy",
+            "database": "connected",
+        }
+
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database connection failed",
+        ) from exc
 
 
 @router.post(
