@@ -39,13 +39,30 @@ spec:
             - name: http
               containerPort: {{ .Values.eventService.port }}
               protocol: TCP
+          env:
+            - name: CLICKHOUSE_HOST
+              value: "clickhouse.clickhouse.svc.cluster.local"
 
-          envFrom:
-            - configMapRef:
-                name: platform-config
+            - name: CLICKHOUSE_PORT
+              value: "8123"
 
-            - secretRef:
-                name: platform-secrets
+            - name: CLICKHOUSE_USER
+              value: "default"
+
+            - name: CLICKHOUSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: analytics-clickhouse-secret
+                  key: password
+
+            - name: CLICKHOUSE_DATABASE
+              value: "analytics"
+          # envFrom:
+          #   - configMapRef:
+          #       name: platform-config
+
+          #   - secretRef:
+          #       name: platform-secrets
 
           readinessProbe:
             httpGet:
