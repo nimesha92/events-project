@@ -57,12 +57,12 @@ spec:
 
             - name: CLICKHOUSE_DATABASE
               value: "analytics"
-          # envFrom:
-          #   - configMapRef:
-          #       name: platform-config
+          envFrom:
+            - configMapRef:
+                name: platform-config
 
-          #   - secretRef:
-          #       name: platform-secrets
+            - secretRef:
+                name: platform-secrets
 
           readinessProbe:
             httpGet:
