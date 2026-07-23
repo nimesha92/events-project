@@ -6,7 +6,7 @@ on:
     paths:
       - "services/**"
       - "helm/new-event-platform/**"
-      - ".github/workflows/four-services-helm-blue-green.yml"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 permissions:
