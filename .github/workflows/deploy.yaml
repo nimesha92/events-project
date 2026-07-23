@@ -51,34 +51,36 @@ jobs:
           kubectl get nodes
           kubectl get pods -n "$K8S_NAMESPACE"
 
+      - name: Set short SHA
+        id: vars
+        run: echo "short_sha=$(echo $GITHUB_SHA | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker images
         shell: bash
         run: |
           set -e
-          
-          SHORT_SHA="${GITHUB_SHA::7}"
-          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
+
+          SHORT_SHA="${{ steps.vars.outputs.short_sha }}"
 
           docker build \
-            -t "$ECR_REGISTRY/new-events/events:$GITHUB_SHA" \
+            -t "$ECR_REGISTRY/new-events/events:$SHORT_SHA" \
             ./services/event-service
-          docker push "$ECR_REGISTRY/new-events/events:$GITHUB_SHA"
+          docker push "$ECR_REGISTRY/new-events/events:$SHORT_SHA"
 
           docker build \
-            -t "$ECR_REGISTRY/new-events/program:$GITHUB_SHA" \
+            -t "$ECR_REGISTRY/new-events/program:$SHORT_SHA" \
             ./services/program-service
-          docker push "$ECR_REGISTRY/new-events/program:$GITHUB_SHA"
+          docker push "$ECR_REGISTRY/new-events/program:$SHORT_SHA"
 
           docker build \
-            -t "$ECR_REGISTRY/new-events/registration:$GITHUB_SHA" \
+            -t "$ECR_REGISTRY/new-events/registration:$SHORT_SHA" \
             ./services/registration-service
-          docker push "$ECR_REGISTRY/new-events/registration:$GITHUB_SHA"
+          docker push "$ECR_REGISTRY/new-events/registration:$SHORT_SHA"
 
           docker build \
-            -t "$ECR_REGISTRY/new-events/analytics:$GITHUB_SHA" \
+            -t "$ECR_REGISTRY/new-events/analytics:$SHORT_SHA" \
             ./services/analytics-service
-          docker push "$ECR_REGISTRY/new-events/analytics:$GITHUB_SHA"
+          docker push "$ECR_REGISTRY/new-events/analytics:$SHORT_SHA"
 
 
       - name: Install Helm
