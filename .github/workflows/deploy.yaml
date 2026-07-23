@@ -56,6 +56,9 @@ jobs:
         shell: bash
         run: |
           set -e
+          
+          SHORT_SHA="${GITHUB_SHA::7}"
+          echo "SHORT_SHA=$SHORT_SHA" >> "$GITHUB_ENV"
 
           docker build \
             -t "$ECR_REGISTRY/new-events/events:$GITHUB_SHA" \
