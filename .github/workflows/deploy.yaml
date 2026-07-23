@@ -19,7 +19,7 @@ env:
   EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
   K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE || 'default' }}
   ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
-  HELM_RELEASE: new-event-platform
+  HELM_RELEASE: newnets
   HELM_CHART: ./helm/new-event-platform
 
 jobs:
