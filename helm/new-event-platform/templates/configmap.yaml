@@ -22,5 +22,3 @@ data:
   REGISTRATION_SERVICE_URL: {{ .Values.internalUrls.registrationService | quote }}
 
   ANALYTICS_SERVICE_URL: {{ .Values.internalUrls.analyticsService | quote }}
-
-  METABASE_TIMEZONE: {{ .Values.metabase.timezone | quote }}
