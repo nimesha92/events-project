@@ -120,3 +120,55 @@ jobs:
 
           echo "Active colour: $ACTIVE"
           echo "Deployment colour: $TARGET"
+
+      - name: Deploy inactive environment with Helm
+        shell: bash
+        env:
+          ACTIVE: ${{ steps.colour.outputs.active }}
+          TARGET: ${{ steps.colour.outputs.target }}
+          INITIAL: ${{ steps.colour.outputs.initial }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          LAMBDA_FUNCTION_URL: ${{ secrets.LAMBDA_FUNCTION_URL }}
+          CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
+        run: |
+          set -e
+
+          COMMON_VALUES=(
+            --namespace "$K8S_NAMESPACE"
+            --set-string database.url="$DATABASE_URL"
+            --set-string lambda.functionUrl="$LAMBDA_FUNCTION_URL"
+            --set-string clickhouse.password="$CLICKHOUSE_PASSWORD"
+            --set-string eventService.image.repository="$ECR_REGISTRY/new-events/events"
+            --set-string programService.image.repository="$ECR_REGISTRY/new-events/program"
+            --set-string registrationService.image.repository="$ECR_REGISTRY/new-events/registration"
+            --set-string analyticsService.image.repository="$ECR_REGISTRY/new-events/analytics"
+          )
+
+          if [ "$INITIAL" = "true" ]; then
+            helm upgrade --install "$HELM_RELEASE" "$HELM_CHART" \
+              "${COMMON_VALUES[@]}" \
+              --set-string blueGreen.activeColor=blue \
+              --set-string eventService.image.blueTag="$GITHUB_SHA" \
+              --set-string eventService.image.greenTag="$GITHUB_SHA" \
+              --set-string programService.image.blueTag="$GITHUB_SHA" \
+              --set-string programService.image.greenTag="$GITHUB_SHA" \
+              --set-string registrationService.image.blueTag="$GITHUB_SHA" \
+              --set-string registrationService.image.greenTag="$GITHUB_SHA" \
+              --set-string analyticsService.image.blueTag="$GITHUB_SHA" \
+              --set-string analyticsService.image.greenTag="$GITHUB_SHA" \
+              --wait \
+              --timeout 10m \
+              --atomic
+          else
+            helm upgrade "$HELM_RELEASE" "$HELM_CHART" \
+              "${COMMON_VALUES[@]}" \
+              --reuse-values \
+              --set-string blueGreen.activeColor="$ACTIVE" \
+              --set-string eventService.image.${TARGET}Tag="$GITHUB_SHA" \
+              --set-string programService.image.${TARGET}Tag="$GITHUB_SHA" \
+              --set-string registrationService.image.${TARGET}Tag="$GITHUB_SHA" \
+              --set-string analyticsService.image.${TARGET}Tag="$GITHUB_SHA" \
+              --wait \
+              --timeout 10m \
+              --atomic
+          fi
