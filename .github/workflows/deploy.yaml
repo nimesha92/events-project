@@ -120,7 +120,7 @@ jobs:
         id: colour
         shell: bash
         run: |
-          if kubectl get service event-service \
+          if helm status "$HELM_RELEASE" \
             -n "$K8S_NAMESPACE" >/dev/null 2>&1; then
 
             ACTIVE=$(kubectl get service event-service \
@@ -146,6 +146,7 @@ jobs:
 
           echo "Active colour: $ACTIVE"
           echo "Deployment colour: $TARGET"
+          echo "Initial deployment: $INITIAL"
 
       - name: Deploy inactive environment with Helm
         shell: bash
@@ -188,7 +189,7 @@ jobs:
               --timeout 10m \
               --rollback-on-failure
           else
-            helm upgrade "$HELM_RELEASE" "$HELM_CHART" \
+            helm upgrade --install "$HELM_RELEASE" "$HELM_CHART" \
               "${COMMON_VALUES[@]}" \
               --reuse-values \
               --set-string blueGreen.activeColor="$ACTIVE" \
