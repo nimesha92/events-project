@@ -50,3 +50,36 @@ jobs:
 
           kubectl get nodes
           kubectl get pods -n "$K8S_NAMESPACE"
+
+
+      - name: Build and push Docker images
+        shell: bash
+        run: |
+          set -e
+
+          docker build \
+            -t "$ECR_REGISTRY/new-events/events:$GITHUB_SHA" \
+            ./services/event-service
+          docker push "$ECR_REGISTRY/new-events/events:$GITHUB_SHA"
+
+          docker build \
+            -t "$ECR_REGISTRY/new-events/program:$GITHUB_SHA" \
+            ./services/program-service
+          docker push "$ECR_REGISTRY/new-events/program:$GITHUB_SHA"
+
+          docker build \
+            -t "$ECR_REGISTRY/new-events/registration:$GITHUB_SHA" \
+            ./services/registration-service
+          docker push "$ECR_REGISTRY/new-events/registration:$GITHUB_SHA"
+
+          docker build \
+            -t "$ECR_REGISTRY/new-events/analytics:$GITHUB_SHA" \
+            ./services/analytics-service
+          docker push "$ECR_REGISTRY/new-events/analytics:$GITHUB_SHA"
+
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
