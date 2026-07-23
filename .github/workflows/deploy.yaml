@@ -23,7 +23,65 @@ env:
   HELM_CHART: ./helm/new-event-platform
 
 jobs:
-  build-and-deploy:
+  build-scan-push:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: events
+            context: ./services/event-service
+          - name: program
+            context: ./services/program-service
+          - name: registration
+            context: ./services/registration-service
+          - name: analytics
+            context: ./services/analytics-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image tag
+        id: vars
+        shell: bash
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build ${{ matrix.name }} image
+        shell: bash
+        run: |
+          docker build \
+            -t "$ECR_REGISTRY/new-events/${{ matrix.name }}:${{ steps.vars.outputs.tag }}" \
+            "${{ matrix.context }}"
+
+      - name: Scan ${{ matrix.name }} image with Trivy
+        uses: aquasecurity/trivy-action@0.36.0
+        with:
+          image-ref: '${{ env.ECR_REGISTRY }}/new-events/${{ matrix.name }}:${{ steps.vars.outputs.tag }}'
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Push ${{ matrix.name }} image
+        shell: bash
+        run: |
+          docker push \
+            "$ECR_REGISTRY/new-events/${{ matrix.name }}:${{ steps.vars.outputs.tag }}"
+
+
+  deploy:
+    needs: build-scan-push
     runs-on: ubuntu-latest
 
     steps:
@@ -35,60 +93,28 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Verify AWS connection
-        run: |
-          aws sts get-caller-identity
-
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Test EKS connection
-        run: |
-          aws eks update-kubeconfig \
-          --region "$AWS_REGION" \
-          --name "$EKS_CLUSTER_NAME"
-
-          kubectl get nodes
-          kubectl get pods -n "$K8S_NAMESPACE"
-
-      - name: Set short SHA
-        id: vars
-        run: echo "short_sha=$(echo $GITHUB_SHA | cut -c1-7)" >> "$GITHUB_OUTPUT"
-
-      - name: Build and push Docker images
-        shell: bash
-        run: |
-          set -e
-
-          SHORT_SHA="${{ steps.vars.outputs.short_sha }}"
-
-          docker build \
-            -t "$ECR_REGISTRY/new-events/events:$SHORT_SHA" \
-            ./services/event-service
-          docker push "$ECR_REGISTRY/new-events/events:$SHORT_SHA"
-
-          docker build \
-            -t "$ECR_REGISTRY/new-events/program:$SHORT_SHA" \
-            ./services/program-service
-          docker push "$ECR_REGISTRY/new-events/program:$SHORT_SHA"
-
-          docker build \
-            -t "$ECR_REGISTRY/new-events/registration:$SHORT_SHA" \
-            ./services/registration-service
-          docker push "$ECR_REGISTRY/new-events/registration:$SHORT_SHA"
-
-          docker build \
-            -t "$ECR_REGISTRY/new-events/analytics:$SHORT_SHA" \
-            ./services/analytics-service
-          docker push "$ECR_REGISTRY/new-events/analytics:$SHORT_SHA"
-
 
       - name: Install Helm
         uses: azure/setup-helm@v4
 
       - name: Install kubectl
-    
         uses: azure/setup-kubectl@v4
+
+      - name: Connect to EKS
+        shell: bash
+        run: |
+          aws sts get-caller-identity
+
+          aws eks update-kubeconfig \
+            --region "$AWS_REGION" \
+            --name "$EKS_CLUSTER_NAME"
+
+          kubectl get nodes
+
+      - name: Set image tag
+        id: vars
+        shell: bash
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Select Blue or Green
         id: colour
@@ -127,14 +153,16 @@ jobs:
           ACTIVE: ${{ steps.colour.outputs.active }}
           TARGET: ${{ steps.colour.outputs.target }}
           INITIAL: ${{ steps.colour.outputs.initial }}
+          IMAGE_TAG: ${{ steps.vars.outputs.tag }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           LAMBDA_FUNCTION_URL: ${{ secrets.LAMBDA_FUNCTION_URL }}
           CLICKHOUSE_PASSWORD: ${{ secrets.CLICKHOUSE_PASSWORD }}
         run: |
-          set -e
+          set -euo pipefail
 
           COMMON_VALUES=(
             --namespace "$K8S_NAMESPACE"
+            --create-namespace
             --set-string database.url="$DATABASE_URL"
             --set-string lambda.functionUrl="$LAMBDA_FUNCTION_URL"
             --set-string clickhouse.password="$CLICKHOUSE_PASSWORD"
@@ -148,14 +176,14 @@ jobs:
             helm upgrade --install "$HELM_RELEASE" "$HELM_CHART" \
               "${COMMON_VALUES[@]}" \
               --set-string blueGreen.activeColor=blue \
-              --set-string eventService.image.blueTag="$GITHUB_SHA" \
-              --set-string eventService.image.greenTag="$GITHUB_SHA" \
-              --set-string programService.image.blueTag="$GITHUB_SHA" \
-              --set-string programService.image.greenTag="$GITHUB_SHA" \
-              --set-string registrationService.image.blueTag="$GITHUB_SHA" \
-              --set-string registrationService.image.greenTag="$GITHUB_SHA" \
-              --set-string analyticsService.image.blueTag="$GITHUB_SHA" \
-              --set-string analyticsService.image.greenTag="$GITHUB_SHA" \
+              --set-string eventService.image.blueTag="$IMAGE_TAG" \
+              --set-string eventService.image.greenTag="$IMAGE_TAG" \
+              --set-string programService.image.blueTag="$IMAGE_TAG" \
+              --set-string programService.image.greenTag="$IMAGE_TAG" \
+              --set-string registrationService.image.blueTag="$IMAGE_TAG" \
+              --set-string registrationService.image.greenTag="$IMAGE_TAG" \
+              --set-string analyticsService.image.blueTag="$IMAGE_TAG" \
+              --set-string analyticsService.image.greenTag="$IMAGE_TAG" \
               --wait \
               --timeout 10m \
               --rollback-on-failure
@@ -164,11 +192,18 @@ jobs:
               "${COMMON_VALUES[@]}" \
               --reuse-values \
               --set-string blueGreen.activeColor="$ACTIVE" \
-              --set-string eventService.image.${TARGET}Tag="$GITHUB_SHA" \
-              --set-string programService.image.${TARGET}Tag="$GITHUB_SHA" \
-              --set-string registrationService.image.${TARGET}Tag="$GITHUB_SHA" \
-              --set-string analyticsService.image.${TARGET}Tag="$GITHUB_SHA" \
+              --set-string eventService.image.${TARGET}Tag="$IMAGE_TAG" \
+              --set-string programService.image.${TARGET}Tag="$IMAGE_TAG" \
+              --set-string registrationService.image.${TARGET}Tag="$IMAGE_TAG" \
+              --set-string analyticsService.image.${TARGET}Tag="$IMAGE_TAG" \
               --wait \
               --timeout 10m \
               --rollback-on-failure
           fi
+
+      - name: Verify deployment
+        shell: bash
+        run: |
+          kubectl get pods -n "$K8S_NAMESPACE"
+          kubectl get services -n "$K8S_NAMESPACE"
+          helm status "$HELM_RELEASE" -n "$K8S_NAMESPACE"
