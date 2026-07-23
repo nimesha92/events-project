@@ -1,0 +1,209 @@
+# =====================================================
+# Global configuration
+# =====================================================
+
+global:
+  imagePullPolicy: Always
+
+
+# =====================================================
+# AWS RDS PostgreSQL
+# =====================================================
+
+database:
+  url: ${{ DATABASE_URL }}
+
+
+# =====================================================
+# AWS Lambda
+# =====================================================
+
+lambda:
+  functionUrl: ${{ LAMBDA_FUNCTION_URL }}
+
+
+# =====================================================
+# Internal Kubernetes service URLs
+# =====================================================
+
+internalUrls:
+  eventService: "http://event-service:8000"
+  programService: "http://program-service:8000"
+  registrationService: "http://registration-service:8000"
+  analyticsService: "http://analytics-service:8000"
+
+
+# =====================================================
+# Event Service
+# =====================================================
+
+eventService:
+  enabled: true
+
+  image:
+    repository: "774200943953.dkr.ecr.us-east-1.amazonaws.com/new-events/events"
+    tag: "v4"
+
+  replicas: 1
+
+  port: 8000
+
+  readinessPath: "/health"
+  livenessPath: "/health"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+
+# =====================================================
+# Program Service
+# =====================================================
+
+programService:
+  enabled: true
+
+  image:
+    repository: "774200943953.dkr.ecr.us-east-1.amazonaws.com/new-events/program"
+    tag: "v3"
+
+  replicas: 1
+
+  port: 8000
+
+  readinessPath: "/"
+  livenessPath: "/"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+
+# =====================================================
+# Registration Service
+# =====================================================
+
+registrationService:
+  enabled: true
+
+  image:
+    repository: "774200943953.dkr.ecr.us-east-1.amazonaws.com/new-events/registration"
+    tag: "v3"
+
+  replicas: 1
+
+  port: 8000
+
+  readinessPath: "/"
+  livenessPath: "/"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+
+# =====================================================
+# Analytics Service
+# =====================================================
+
+analyticsService:
+  enabled: true
+
+  image:
+    repository: "774200943953.dkr.ecr.us-east-1.amazonaws.com/new-events/analytics"
+    tag: "v3"
+
+  replicas: 1
+
+  port: 8000
+
+  readinessPath: "/"
+  livenessPath: "/"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+
+# =====================================================
+# Frontend
+# =====================================================
+
+frontend:
+  enabled: true
+
+  image:
+    repository: "774200943953.dkr.ecr.us-east-1.amazonaws.com/new-events/frontend"
+    tag: "v2"
+
+  replicas: 1
+
+  port: 80
+
+  readinessPath: "/"
+  livenessPath: "/"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+
+# =====================================================
+# ClickHouse
+# =====================================================
+
+clickhouse:
+  enabled: true
+
+  image:
+    repository: "clickhouse/clickhouse-server"
+    tag: "24.8"
+
+  replicas: 1
+
+  host: "clickhouse"
+  database: "analytics"
+  username: "default"
+  password: ""
+
+
+
+# =====================================================
+# Ingress
+# =====================================================
+
+ingress:
+  enabled: true
+  className: alb
+  host: ""
+
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/group.name: new-event-platform
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
