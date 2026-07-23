@@ -34,9 +34,7 @@ jobs:
           
           # Decode the JWT payload (2nd segment) without verifying signature
           cat token.txt | cut -d '.' -f2 | base64 -d 2>/dev/null | jq .
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
-          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+
       - name: Checkout code
         uses: actions/checkout@v6
 
