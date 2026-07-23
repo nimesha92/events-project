@@ -27,14 +27,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Debug OIDC claims
-        run: |
-          curl -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value' > token.txt
-          
-          # Decode the JWT payload (2nd segment) without verifying signature
-          cat token.txt | cut -d '.' -f2 | base64 -d 2>/dev/null | jq .
-
       - name: Checkout code
         uses: actions/checkout@v6
 
@@ -46,3 +38,20 @@ jobs:
       - name: Verify AWS connection
         run: |
           aws sts get-caller-identity
+
+      - name: Test ECR access
+        run: |
+          aws ecr describe-repositories \
+          --region "$AWS_REGION"
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Test EKS connection
+        run: |
+          aws eks update-kubeconfig \
+          --region "$AWS_REGION" \
+          --name "$EKS_CLUSTER_NAME"
+
+          kubectl get nodes
+          kubectl get pods -n "$K8S_NAMESPACE"
