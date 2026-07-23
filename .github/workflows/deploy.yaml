@@ -87,4 +87,36 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Install kubectl
+    
         uses: azure/setup-kubectl@v4
+
+      - name: Select Blue or Green
+        id: colour
+        shell: bash
+        run: |
+          if kubectl get service event-service \
+            -n "$K8S_NAMESPACE" >/dev/null 2>&1; then
+
+            ACTIVE=$(kubectl get service event-service \
+              -n "$K8S_NAMESPACE" \
+              -o jsonpath='{.spec.selector.version}')
+
+            if [ "$ACTIVE" = "blue" ]; then
+              TARGET="green"
+            else
+              TARGET="blue"
+            fi
+
+            INITIAL="false"
+          else
+            ACTIVE="blue"
+            TARGET="blue"
+            INITIAL="true"
+          fi
+
+          echo "active=$ACTIVE" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "initial=$INITIAL" >> "$GITHUB_OUTPUT"
+
+          echo "Active colour: $ACTIVE"
+          echo "Deployment colour: $TARGET"
